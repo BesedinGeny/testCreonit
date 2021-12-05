@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
+from .filters import TestFilter
 from .models import Test, Answer, AnswerDone, Task
 from .serializers import TestSerializer, UserSerializer
 
@@ -40,8 +41,8 @@ class TestsView(generics.ListAPIView):
     queryset = Test.objects.all()
     serializer_class = TestSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = (DjangoFilterBackend, )  # TestFilter не получилось
-    filterset_fields = ('id', 'title')
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = TestFilter
 
 
 class TestView(APIView):

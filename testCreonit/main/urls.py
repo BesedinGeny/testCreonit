@@ -9,7 +9,6 @@ router.register(r'register', CreateUserView)
 urlpatterns = [
     path('', index),
     path('login/', LoginView.as_view(), name='login'),
-    #  path('register/', create_auth, name='register'),
     path('tests/', TestsView.as_view(), name='tests'),
     path('tests/<slug:test_slug>/', TestView.as_view(), name='test_page'),
 ]

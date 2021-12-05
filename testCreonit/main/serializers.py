@@ -2,7 +2,7 @@ from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from .models import Test, Task, MyUser, Answer, AnswerChoice
+from .models import Test, Task, Answer, AnswerChoice
 
 
 class AnswerChoiceSerializer(ModelSerializer):
@@ -36,7 +36,6 @@ class TestSerializer(ModelSerializer):
 
     def create(self, validated_data):
         print(validated_data)
-        #id = validated_data['id']
         limit = validated_data['limit']
         title = validated_data['title']
         slug = validated_data['slug']
@@ -54,8 +53,6 @@ class TestSerializer(ModelSerializer):
                 setattr(instance, key, value)
         instance.save()
         return instance
-
-
 
 
 UserModel = get_user_model()
@@ -77,15 +74,3 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserModel
         fields = ("id", "username", "password", "first_name", "second_name")
-
-
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField(
-        max_length=100,
-        style={'placeholder': 'Email', 'autofocus': True}
-    )
-    password = serializers.CharField(
-        max_length=100,
-        style={'input_type': 'password', 'placeholder': 'Password'}
-    )
-    remember_me = serializers.BooleanField()

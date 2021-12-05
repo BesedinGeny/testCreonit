@@ -1,6 +1,6 @@
 from django_filters import rest_framework as filters
 
-from .models import Test, Answer, MyUser
+from .models import Answer, MyUser
 
 
 class TestFilter(filters.FilterSet):

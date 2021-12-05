@@ -1,11 +1,7 @@
 from django.contrib.auth import authenticate, login, get_user_model
-from django.http import HttpResponse
-from django.shortcuts import render, redirect
-from django.views.generic import ListView
+from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, generics, filters
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.generics import CreateAPIView, get_object_or_404
 from rest_framework.mixins import CreateModelMixin
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
@@ -14,10 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
-from .filters import TestFilter
-from .forms import LoginForm, RegistrationForm
-from .models import Test, MyUser, Answer, AnswerDone, Task
-# from .filters import TestFilter
+from .models import Test, Answer, AnswerDone, Task
 from .serializers import TestSerializer, UserSerializer
 
 
@@ -44,9 +37,7 @@ def index(request):
 
 
 class TestsView(generics.ListAPIView):
-    # renderer_classes = [TemplateHTMLRenderer]
     queryset = Test.objects.all()
-    # template_name = 'main/tests.html'
     serializer_class = TestSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = (DjangoFilterBackend, )  # TestFilter не получилось

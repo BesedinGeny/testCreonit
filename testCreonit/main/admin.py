@@ -13,7 +13,7 @@ class TestForm(forms.ModelForm):
         model = Test
         fields = "__all__"
 
-    def clean(self):
+    def clean(self):  # валидация кол-ва заданий в тесте
         tasks = self.cleaned_data.get("tasks")
         limit = self.cleaned_data.get('limit')
         if tasks.count() > limit:

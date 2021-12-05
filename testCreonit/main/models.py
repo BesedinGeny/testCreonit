@@ -3,10 +3,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import User, AbstractUser
 
-
-# Create your models here.
 from django.urls import reverse
-from rest_framework.exceptions import ValidationError
 
 
 class TypeOfTask(models.TextChoices):
@@ -42,7 +39,7 @@ class Test(models.Model):
     def get_absolute_url(self):
         return reverse('test_page', kwargs={'test_slug': self.slug})
 
-    @property
+    @property  # not used -_-
     def users_passed(self):
         answered = Answer.objects.filter(test__id=self.pk)
         usernames = []

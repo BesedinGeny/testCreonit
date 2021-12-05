@@ -1,0 +1,54 @@
+{% load rest_framework %}
+
+<html><body>
+
+<h1>Test - {{ test.title }}</h1>
+
+{%if result %}
+<h2>Ответы даны</h2>
+{%endif%}
+{% for res in result.answers.all %}
+ {{res.task_id}}: ваш ответ {{res.text}}
+{% endfor %}
+
+<h2>Задания</h2>
+ <form method="POST" action="">{% csrf_token %}
+
+     <input hidden name="test_id" value="{{test.pk}}">
+{% for task in test.tasks.all %}
+
+     <input hidden name="task_id" value="{{task.pk}}">
+<li>{{task.pk}} {{task.text}}</li>
+<ul>
+    {% if task.task_type == "FULL" %}
+        <input type="text" value="" name="{{ task.id }}" >
+    {% else %}
+
+            {% for mb_answer in task.answer_choice.all %}
+                <p>
+                    {% if task.task_type == "SINGLE" %}
+                    <input type="radio" value="{{mb_answer.id}}" name="{{task.id}}">
+                    {% elif task.task_type == "MANY" %}
+                    <input type="checkbox" value="{{mb_answer.id}}" name="{{task.id}}">
+                    {% endif %}
+                    <label>{{mb_answer.text}}</label>
+                </p>
+            {% endfor %}
+
+
+    {% endif %}
+
+    {%if result %}
+<h2>Правильный ответ: {{task.answer}}</h2>
+{%endif%}
+</ul>
+
+{%endfor%}
+     {% if disabled %}
+     <input type="submit" value="Тест пройден" name="btn_submit}" class="submit" disabled >
+     {% else %}
+     <input type="submit" value="Закончить тест" name="btn_submit" class="submit" >
+     {% endif %}
+  </form>
+
+</body></html>

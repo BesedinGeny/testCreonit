@@ -1,0 +1,9 @@
+<html><body>
+<h1>Tests</h1>
+<ul>
+    {% for test in tests %}
+    <a href="{{ test.get_absolute_url }}"><li>{{ test.title }}</li> </a>
+    <ul> </ul>
+    {% endfor %}
+</ul>
+</body></html>

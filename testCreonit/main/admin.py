@@ -11,12 +11,12 @@ from .models import MyUser, Test, Task, Answer, AnswerChoice, AnswerDone
 class TestForm(forms.ModelForm):
     class Meta:
         model = Test
-        fields = "__all__"
+        exclude = ['slug']
 
     def clean(self):  # валидация кол-ва заданий в тесте
         tasks = self.cleaned_data.get("tasks")
         limit = self.cleaned_data.get('limit')
-        if tasks.count() > limit:
+        if tasks.count() > limit:  # поле лимита заданий в тесте.
             raise ValidationError("To many tasks!")
         return self.cleaned_data
 

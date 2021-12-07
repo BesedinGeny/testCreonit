@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
-
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'django_filters',
+    'djoser',
+    'rest_framework.authtoken',
     'main',
 ]
 
@@ -102,16 +104,37 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = 'main.myUser'
 
 REST_FRAMEWORK = {
-    'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend', 'main.filters.TestFilter'),
+    'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',
+                                'main.filters.TestFilter'),
+    'DEFAULT_AUTHENTICATION_CLASSES': ('rest_framework.authentication.TokenAuthentication',
+                                       "rest_framework_simplejwt.authentication.JWTAuthentication"),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 2
+}
+
+DJOSER = {
+    'PASSWORD_RESET_CONFIRM_URL': "#/password/reset/confirm/{uid}/{token}",
+    'USERNAME_RESET_CONFIRM_URL': "#/username/reset/confirm/{uid}/{token}",
+    "SOCIAL_AUTH_TOKEN_STRATEGY": "djoser.social.token.jwt.TokenStrategy",
+    'ACTIVATION_URL': "#activate/{uid}/{token}",
+    'SEND_ACTIVATION_EMAIL': False,
+    'SERIALIZERS': {
+        "user": "main.serializers.UserSerializer",
+    },
+}
+
+SIMPLE_JWT = {
+    "AUTH_HEADER_TYPES": ("JWT",),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
 }
 
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru-ru'
 
 TIME_ZONE = 'UTC'
 

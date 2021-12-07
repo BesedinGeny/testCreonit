@@ -1,36 +1,40 @@
+import json
+
 from django.contrib.auth import authenticate, login, get_user_model
+from django.contrib.auth.hashers import check_password
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import permissions, status, generics, filters
-from rest_framework.mixins import CreateModelMixin
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
-from rest_framework.renderers import TemplateHTMLRenderer
+from rest_framework import permissions, status, generics, filters, renderers
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication, TokenAuthentication
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated, BasePermission, OperandHolder
+from rest_framework.renderers import TemplateHTMLRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.viewsets import GenericViewSet
 
 from .filters import TestFilter
-from .models import Test, Answer, AnswerDone, Task
-from .serializers import TestSerializer, UserSerializer
+from .models import Test, Answer, AnswerDone, Task, MyUser
+from .serializers import TestSerializer, UserSerializer, AnswerDoneSerializer, AnswerSerializer
 
 
 def method_permission_classes(classes):
     def decorator(func):
         def decorated_func(self, *args, **kwargs):
             self.permission_classes = classes
+            for cls in classes:
+                if not issubclass(cls.__class__, OperandHolder):
+                    # Если у нас странный пермишен, то установим только для админа
+                    self.permission_classes = [IsAdminUser]
+                    break
             self.check_permissions(self.request)
             return func(self, *args, **kwargs)
 
         return decorated_func
 
     return decorator
-
-
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 2
-    page_size_query_param = 'page_size'
-    max_page_size = 20
 
 
 def index(request):
@@ -40,7 +44,7 @@ def index(request):
 class TestsView(generics.ListAPIView):
     queryset = Test.objects.all()
     serializer_class = TestSerializer
-    pagination_class = StandardResultsSetPagination
+    pagination_class = LimitOffsetPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TestFilter
 
@@ -51,6 +55,7 @@ class TestView(APIView):
         для админа: возможность получить/добавить/изменить/удалить тест
         для пользователя: возможность пройти тест/просмотреть результаты пройденного теста
     """
+    authentication_classes = [TokenAuthentication, ]
 
     @method_permission_classes((permissions.IsAdminUser | permissions.IsAuthenticated,))
     def get(self, request, test_slug):
@@ -58,8 +63,8 @@ class TestView(APIView):
         button_disabled = False
         previous_results = None
         passed_before = Answer.objects.filter(
-            test__pk=test.pk,
-            user__username=request.user.username
+            test_pk=test.pk,
+            username=request.user.username
         ).first()  # только 1 объект
         if passed_before is not None:
             button_disabled = True
@@ -77,38 +82,52 @@ class TestView(APIView):
 
     @method_permission_classes((permissions.IsAdminUser | permissions.IsAuthenticated,))
     def post(self, request, test_slug):
-
-        if request.method == 'POST' and request.POST.get("btn_submit", "") == 'Закончить тест':
-            # поля отправляемые формой, но нам не нужны
-            STUFF_FIELDS = ['btn_submit', 'csrfmiddlewaretoken', 'test_id', 'task_id']
+        json_data = {}
+        if request.accepted_renderer.format == 'json':  # приведение к единому типу запроса с формы и с внешнего запроса
+            json_data = json.loads(request.body.decode('utf-8'))["data"]
+        else:
+            json_data = dict(request.POST)
+        if request.accepted_renderer.format == 'json' or (
+                request.method == 'POST' and request.POST.get("btn_submit", "") == 'Закончить тест'):
             answered = []  # список ответов пользователя
-            test_id = request.POST['test_id']
-            user_pk = request.user.pk
+            test_id = json_data['test_id'][0]
+            tasks_id = json_data['task_id']  # miss naming :(
+            username = request.user.username
 
-            for key in request.POST:
-                value = dict(request.POST)[key]
-                task_id = request.POST['task_id']
-                if key not in STUFF_FIELDS:
-                    task = Task.objects.get(pk=key)  # TODO: немного хардкода ..
-                    raw_value = ""
-                    if task.task_type == "SINGLE":
-                        raw_value = value[0]
-                    elif task.task_type == "MANY":
-                        raw_value = " ".join(value)
-                    elif task.task_type == "FULL":
-                        raw_value = value[0]
-                    current_answer = AnswerDone.objects.create(test_id=test_id, task_id=task_id, text=raw_value)
-                    answered.append(current_answer)
+            passed_before = Answer.objects.filter(
+                test_pk=test_id,
+                username=request.user.username
+            ).first()
+            if passed_before is not None:
+                return Response({"detail": "Тест уже пройден этим пользователем"})
 
-            answer = Answer.objects.create(test_id=test_id, user_id=user_pk)
-            answer.answers.add(*answered)
-            return self.get(request, test_slug)  # смотрим что напроходили
+            for task_id in tasks_id:
+                serializer = AnswerDoneSerializer(data={
+                    'test_id': test_id,
+                    'task_id': task_id,
+                    'text': " ".join(json_data.get(task_id, None))
+                })
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    answered.append(serializer.data)
+            serializer = AnswerSerializer(data={
+                'test_id': test_id,
+                'username': username,
+                'answers': answered
+            })
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        else:  # POST от админа на создание теста
+        elif request.user.is_staff:  # POST от админа на создание теста
             serializer = TestSerializer(data=request.data)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:  # Странный случай, не админ и не форма
+            serializer = TestSerializer(data=request.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @method_permission_classes((permissions.IsAdminUser,))
@@ -127,31 +146,34 @@ class TestView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class CreateUserView(CreateModelMixin, GenericViewSet):
-    permission_classes = [AllowAny]
-    queryset = get_user_model().objects.all()
-    serializer_class = UserSerializer
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def login_user(request):  #
+    data = {}
+    reqBody = json.loads(request.body)
+    username = reqBody['username']
+    password = reqBody['password']
+    try:
+        Account = MyUser.objects.get(username=username)
+    except BaseException as e:
+        raise ValidationError({"400": f'{str(e)}'})
 
+    token = Token.objects.get_or_create(user=Account)[0].key
+    if not check_password(password, Account.password):
+        raise ValidationError({"message": "Incorrect Login credentials"})
 
-class LoginView(APIView):
-    template_name = 'main/login.html'
+    if Account:
+        if Account.is_active:
+            login(request, Account)
+            data["message"] = "user logged in"
+            data["email_address"] = Account.email
 
-    def post(self, request, format=None):
-        data = request.data
+            Res = {"data": data, "token": token}
 
-        username = data.get('username', None)
-        password = data.get('password', None)
+            return Response(Res)
 
-        user = authenticate(username=username, password=password)
-
-        if user is not None:
-            if user.is_active:
-                login(request, user)
-                return Response(status=status.HTTP_200_OK, template_name=self.template_name)  # render ??
-            else:
-                return Response(status=status.HTTP_404_NOT_FOUND)
         else:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            raise ValidationError({"400": f'Account not active'})
 
-    def get(self, request):
-        return Response(template_name=self.template_name)
+    else:
+        raise ValidationError({"400": f'Account not active'})

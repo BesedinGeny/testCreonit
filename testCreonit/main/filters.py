@@ -12,5 +12,10 @@ class TestFilter(filters.FilterSet):
         fields = ['users_passed', 'id', 'title']
 
     def is_user_passed(self, queryset, name, value):
-        answered = Test.objects.filter(answer__username=value)
-        return answered
+        answered = Answer.objects.filter(username=value).only  # когда был foriegn key
+        # можно было так answerd = Test.obj.filter(answer__user__username=value)
+        tests_pk = []
+        for answer in answered:
+            tests_pk.append(answer.test_id)
+        queryset = Test.objects.filter(pk__in=tests_pk)
+        return queryset
